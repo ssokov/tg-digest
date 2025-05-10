@@ -1,0 +1,4 @@
+# botsrv 
+
+## Problems
+- time validation
