@@ -69,6 +69,8 @@ func (a *App) Run() error {
 	a.registerHandlers()
 	a.registerDebugHandlers()
 	a.registerAPIHandlers()
+
+	a.bm.RegisterBotHandlers(a.b)
 	go a.b.Start(context.TODO())
 	return a.runHTTPServer(a.cfg.Server.Host, a.cfg.Server.Port)
 }
