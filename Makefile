@@ -48,12 +48,12 @@ mod:
 	@go mod vendor
 	@git add vendor
 
-NS := "NONE"
+NS := "common"
 
-MAPPING := "common:users;vfs:vfsFiles,vfsFolders"
+MAPPING := "common:messageReactions"
 
 mfd-xml:
-	@mfd-generator xml -c "postgres://postgres:postgres@localhost:5432/botsrv?sslmode=disable" -m ./docs/model/botsrv.mfd -n $(MAPPING)
+	@mfd-generator xml -c "postgres://postgres:postgres@localhost:5432/reactions?sslmode=disable" -m ./docs/model/botsrv.mfd -n $(MAPPING)
 mfd-model:
 	@mfd-generator model -m ./docs/model/botsrv.mfd -p db -o ./pkg/db
 mfd-repo: --check-ns

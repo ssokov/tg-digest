@@ -21,5 +21,14 @@
                 <Search Name="LastActivityAtTo" AttrName="LastActivityAt" SearchType="SEARCHTYPE_LE"></Search>
             </Searches>
         </Entity>
+        <Entity Name="MessageReaction" Namespace="common" Table="messageReactions">
+            <Attributes>
+                <Attribute Name="ID" DBName="messageId" DBType="int4" GoType="int" PK="true" Nullable="Yes" Addable="true" Updatable="false" Min="0" Max="0"></Attribute>
+                <Attribute Name="ReactionsCount" DBName="reactionsCount" DBType="int4" GoType="*int" PK="false" Nullable="Yes" Addable="true" Updatable="true" Min="0" Max="0"></Attribute>
+            </Attributes>
+            <Searches>
+                <Search Name="IDs" AttrName="ID" SearchType="SEARCHTYPE_ARRAY"></Search>
+            </Searches>
+        </Entity>
     </Entities>
 </Package>
