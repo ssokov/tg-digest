@@ -7,7 +7,7 @@ EnableVFS = true
 [Database]
 Addr            = "localhost:5432"
 User            = "postgres"
-Database        = "botsrv"
+Database        = "reactions"
 Password        = ""
 PoolSize        = 5
 ApplicationName = "botsrv"

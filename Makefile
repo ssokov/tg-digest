@@ -53,7 +53,7 @@ NS := "common"
 MAPPING := "common:messageReactions"
 
 mfd-xml:
-	@mfd-generator xml -c "postgres://postgres:postgres@localhost:5432/reactions?sslmode=disable" -m ./docs/model/botsrv.mfd -n $(MAPPING)
+	@mfd-generator xml -c "postgres://mikhail:@localhost:5432/reactions?sslmode=disable" -m ./docs/model/botsrv.mfd -n $(MAPPING)
 mfd-model:
 	@mfd-generator model -m ./docs/model/botsrv.mfd -p db -o ./pkg/db
 mfd-repo: --check-ns
