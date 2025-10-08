@@ -10,13 +10,12 @@ import (
 
 var Columns = struct {
 	MessageReaction struct {
-		ID, ReactionsCount, MessageID, ChatID, CreatedAt string
+		ReactionsCount, MessageID, ChatID, CreatedAt string
 	}
 }{
 	MessageReaction: struct {
-		ID, ReactionsCount, MessageID, ChatID, CreatedAt string
+		ReactionsCount, MessageID, ChatID, CreatedAt string
 	}{
-		ID:             "messageId",
 		ReactionsCount: "reactionsCount",
 		MessageID:      "messageId",
 		ChatID:         "chatId",
@@ -40,9 +39,8 @@ var Tables = struct {
 type MessageReaction struct {
 	tableName struct{} `pg:"messageReactions,alias:t,discard_unknown_columns"`
 
-	ID             int       `pg:"messageId,pk"`
 	ReactionsCount *int      `pg:"reactionsCount"`
-	MessageID      int64     `pg:"messageId,pk"`
+	MessageID      int       `pg:"messageId,pk"`
 	ChatID         int64     `pg:"chatId,pk"`
 	CreatedAt      time.Time `pg:"createdAt,use_zero"`
 }

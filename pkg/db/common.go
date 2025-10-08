@@ -61,8 +61,8 @@ func (cr CommonRepo) DefaultMessageReactionSort() OpFunc {
 }
 
 // MessageReactionByID is a function that returns MessageReaction by ID(s) or nil.
-func (cr CommonRepo) MessageReactionByID(ctx context.Context, id int, messageID int64, chatID int64, ops ...OpFunc) (*MessageReaction, error) {
-	return cr.OneMessageReaction(ctx, &MessageReactionSearch{ID: &id, MessageID: &messageID, ChatID: &chatID}, ops...)
+func (cr CommonRepo) MessageReactionByID(ctx context.Context, messageID int, chatID int64, ops ...OpFunc) (*MessageReaction, error) {
+	return cr.OneMessageReaction(ctx, &MessageReactionSearch{MessageID: &messageID, ChatID: &chatID}, ops...)
 }
 
 // OneMessageReaction is a function that returns one MessageReaction by filters. It could return pg.ErrMultiRows.
@@ -106,7 +106,7 @@ func (cr CommonRepo) AddMessageReaction(ctx context.Context, messageReaction *Me
 func (cr CommonRepo) UpdateMessageReaction(ctx context.Context, messageReaction *MessageReaction, ops ...OpFunc) (bool, error) {
 	q := cr.db.ModelContext(ctx, messageReaction).WherePK()
 	if len(ops) == 0 {
-		q = q.ExcludeColumn(Columns.MessageReaction.ID, Columns.MessageReaction.MessageID, Columns.MessageReaction.ChatID, Columns.MessageReaction.CreatedAt)
+		q = q.ExcludeColumn(Columns.MessageReaction.MessageID, Columns.MessageReaction.ChatID, Columns.MessageReaction.CreatedAt)
 	}
 	applyOps(q, ops...)
 	res, err := q.Update()
@@ -118,8 +118,8 @@ func (cr CommonRepo) UpdateMessageReaction(ctx context.Context, messageReaction 
 }
 
 // DeleteMessageReaction deletes MessageReaction from DB.
-func (cr CommonRepo) DeleteMessageReaction(ctx context.Context, id int, messageID int64, chatID int64) (deleted bool, err error) {
-	messageReaction := &MessageReaction{ID: id, MessageID: messageID, ChatID: chatID}
+func (cr CommonRepo) DeleteMessageReaction(ctx context.Context, messageID int, chatID int64) (deleted bool, err error) {
+	messageReaction := &MessageReaction{MessageID: messageID, ChatID: chatID}
 
 	res, err := cr.db.ModelContext(ctx, messageReaction).WherePK().Delete()
 	if err != nil {
