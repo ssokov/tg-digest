@@ -189,22 +189,23 @@ func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, upd
 	res := "Топ реакции:"
 	for _, reaction := range reactions {
 		var link string
-		if chat.Username != "" {
+
+		chatIDStr := strconv.FormatInt(-chat.ID-1000000000000, 10)
+		switch update.CallbackQuery.Message.Message.Chat.Type {
+		case models.ChatTypeGroup:
 			link = fmt.Sprintf("https://t.me/%s/%d", chat.Username, reaction.MessageID)
-		} else {
-			// для суппергрупп и каналов без юзернейма
-			chatIDStr := strconv.FormatInt(-chat.ID-1000000000000, 10)
-			if update.CallbackQuery.Message.Message.MessageThreadID != 0 {
-				link = fmt.Sprintf("https://t.me/c/%s/%d/%d", chatIDStr, update.CallbackQuery.Message.Message.MessageThreadID, reaction.MessageID)
-			} else {
-				link = fmt.Sprintf("https://t.me/c/%s/%d", chatIDStr, reaction.MessageID)
+		case models.ChatTypeSupergroup:
+			link = fmt.Sprintf("https://t.me/c/%s/%d", chatIDStr, reaction.MessageID)
+			if thread := update.CallbackQuery.Message.Message.MessageThreadID; thread != 0 {
+				link += fmt.Sprintf("?thread=%d", thread)
 			}
 		}
+
 		count := 0
 		if reaction.ReactionsCount != nil {
 			count = *reaction.ReactionsCount
 		}
-		res += fmt.Sprintf("\nCount: %d Link: %s", count, link)
+		res += fmt.Sprintf("\nРеакций: %d Ссылка: %s", count, link)
 	}
 
 	_, err = b.EditMessageText(ctx, &bot.EditMessageTextParams{
