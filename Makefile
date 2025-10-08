@@ -53,14 +53,14 @@ NS := "common"
 MAPPING := "common:messageReactions"
 
 mfd-xml:
-	@mfd-generator xml -c "postgres://mikhail:@localhost:5432/reactions?sslmode=disable" -m ./docs/model/botsrv.mfd -n $(MAPPING)
+	@mfd-generator xml -c "postgres://mikhail:@localhost:5432/reactions?sslmode=disable" -m ./docs/model/tgdigest.mfd -n $(MAPPING)
 mfd-model:
-	@mfd-generator model -m ./docs/model/botsrv.mfd -p db -o ./pkg/db
+	@mfd-generator model -m ./docs/model/tgdigest.mfd -p db -o ./pkg/db
 mfd-repo: --check-ns
-	@mfd-generator repo -m ./docs/model/botsrv.mfd -p db -o ./pkg/db -n $(NS)
+	@mfd-generator repo -m ./docs/model/tgdigest.mfd -p db -o ./pkg/db -n $(NS)
 mfd-xml-lang:
 	#TODO: add namespaces support for xml-lang command
-	@mfd-generator xml-lang  -m ./docs/model/botsrv.mfd
+	@mfd-generator xml-lang  -m ./docs/model/tgdigest.mfd
 
 
 --check-ns:

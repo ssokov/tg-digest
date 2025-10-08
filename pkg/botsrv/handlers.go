@@ -5,6 +5,11 @@ import (
 	"botsrv/pkg/embedlog"
 	"context"
 	"fmt"
+	"log"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-pg/pg/v10"
 	"github.com/go-telegram/bot"
@@ -14,6 +19,13 @@ import (
 const (
 	startCommand  = "/start"
 	digestCommand = "/digest"
+
+	patternDigestHour  = "digest:hour"
+	patternDigestDay   = "digest:day"
+	patternDigestWeek  = "digest:week"
+	patternDigestMonth = "digest:month"
+	patternDigestAll   = "digest:all"
+	paternDigest       = "digest:"
 )
 
 type Config struct {
@@ -37,30 +49,33 @@ func NewBotManager(logger embedlog.Logger, dbo db.DB) *BotManager {
 func (bm *BotManager) RegisterBotHandlers(b *bot.Bot) {
 	b.RegisterHandler(bot.HandlerTypeMessageText, startCommand, bot.MatchTypePrefix, bm.StartHandler)
 	b.RegisterHandler(bot.HandlerTypeMessageText, digestCommand, bot.MatchTypePrefix, bm.DigestHandler)
+	b.RegisterHandler(bot.HandlerTypeCallbackQueryData, paternDigest, bot.MatchTypePrefix, bm.DigestCallbackHandler)
 }
 
 func (bm *BotManager) DefaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	bm.Printf("%+v", update)
 	if update.MessageReaction != nil {
 		println("пришел реакт")
+		println("info: ", update.MessageReaction.MessageID)
 		if err := bm.dbo.RunInTransaction(ctx, func(tx *pg.Tx) error {
 			crTx := bm.cr.WithTransaction(tx)
 			mr, err := crTx.OneMessageReaction(ctx, &db.MessageReactionSearch{
-				ID:     &update.MessageReaction.MessageID,
-				ChatID: &update.MessageReaction.Chat.ID,
+				MessageID: &update.MessageReaction.MessageID,
+				ChatID:    &update.MessageReaction.Chat.ID,
 			})
 			if err != nil {
 				return err
 			}
 			if mr == nil {
+				println("создаем реакт", update.MessageReaction.MessageID)
+				fmt.Println(reflect.TypeOf(update.MessageReaction.MessageID))
 				_, err = crTx.AddMessageReaction(ctx, &db.MessageReaction{
-					ID:     update.MessageReaction.MessageID,
-					ChatID: update.MessageReaction.Chat.ID,
-					//  Сделал, чтобы ставилось сначала текущее количество реакий
-					//  т.к. может сразу прийти больше 1 реакции
-					ReactionsCount: pointer(len(update.MessageReaction.NewReaction)),
+					MessageID:      update.MessageReaction.MessageID,
+					ChatID:         update.MessageReaction.Chat.ID,
+					ReactionsCount: pointer(1),
 				})
 				if err != nil {
+					fmt.Println("ошибка создания реакта", err)
 					return err
 				}
 			} else {
@@ -76,17 +91,6 @@ func (bm *BotManager) DefaultHandler(ctx context.Context, b *bot.Bot, update *mo
 			return
 		}
 	}
-	//if update.Message == nil {
-	//	return
-	//}
-	//_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-	//	ChatID: update.Message.Chat.ID,
-	//	Text:   "test",
-	//})
-	//if err != nil {
-	//	bm.Errorf("%v", err)
-	//	return
-	//}
 }
 
 func (bm *BotManager) StartHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -104,23 +108,110 @@ func (bm *BotManager) StartHandler(ctx context.Context, b *bot.Bot, update *mode
 }
 
 func (bm *BotManager) DigestHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	reactions, err := bm.cr.MessageReactionsByFilters(ctx, &db.MessageReactionSearch{
-		// фильтр по чату
-		ChatID: &update.Message.Chat.ID,
-	}, db.Pager{PageSize: 10},
-		db.WithSort(db.NewSortField(db.Columns.MessageReaction.ReactionsCount, true)))
+	if update.Message == nil {
+		return
+	}
+	kb := &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: "За час", CallbackData: patternDigestHour},
+				{Text: "За день", CallbackData: patternDigestDay},
+			},
+			{
+				{Text: "За неделю", CallbackData: patternDigestWeek},
+				{Text: "За месяц", CallbackData: patternDigestMonth},
+			},
+			{
+				{Text: "За всё время", CallbackData: patternDigestAll},
+			},
+		},
+	}
+	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:          update.Message.Chat.ID,
+		Text:            "Выберите интервал для дайджеста:",
+		ReplyMarkup:     kb,
+		MessageThreadID: update.Message.MessageThreadID,
+	})
 	if err != nil {
 		bm.Errorf("%v", err)
 		return
 	}
+}
+func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+	log.Println("пришел колбек")
+	if update.CallbackQuery == nil || update.CallbackQuery.Data == "" {
+		return
+	}
+	log.Println("data: ", update.CallbackQuery.Data)
+
+	if !strings.HasPrefix(update.CallbackQuery.Data, "digest:") {
+		return
+	}
+	periodPatern := update.CallbackQuery.Data
+
+	log.Println("это наш колбек")
+	chat := update.CallbackQuery.Message.Message.Chat
+
+	chatID := chat.ID
+	messageID := update.CallbackQuery.Message.Message.ID
+
+	pageSize := 10
+
+	now := time.Now()
+	var period time.Time
+	switch periodPatern {
+	case patternDigestHour:
+		period = now.Add(-1 * time.Hour)
+	case patternDigestDay:
+		period = now.Add(-24 * time.Hour)
+	case patternDigestWeek:
+		period = now.Add(-24 * 7 * time.Hour)
+	case patternDigestMonth:
+		period = now.Add(-24 * 7 * 30 * time.Hour)
+	case patternDigestAll:
+		// TODO поменять на другую логику. (возможно запрос без филтьтра по времени, так будет оптимальнее)
+		period = now.Add(-24 * 7 * 30 * 400 * time.Hour)
+	}
+
+	reactions, err := bm.cr.MessageReactionsByFilters(ctx, &db.MessageReactionSearch{
+		ReactionsPeriod: &period,
+		ChatID:          &chat.ID,
+	}, db.Pager{PageSize: pageSize},
+		db.WithSort(db.NewSortField(db.Columns.MessageReaction.ReactionsCount, true)))
+	if err != nil {
+		bm.Errorf("%v", err)
+		log.Println("ошибка получения реактов")
+		return
+	}
+
+	log.Println("получили реакты")
+
 	res := "Топ реакции:"
 	for _, reaction := range reactions {
-		link := fmt.Sprintf("https://t.me/%s/%d", update.Message.Chat.Username, reaction.ID)
-		res += fmt.Sprintf("\nCount: %d Link: %s", *reaction.ReactionsCount, link)
+		var link string
+
+		chatIDStr := strconv.FormatInt(-chat.ID-1000000000000, 10)
+		switch update.CallbackQuery.Message.Message.Chat.Type {
+		case models.ChatTypeGroup:
+			link = fmt.Sprintf("https://t.me/%s/%d", chat.Username, reaction.MessageID)
+		case models.ChatTypeSupergroup:
+			link = fmt.Sprintf("https://t.me/c/%s/%d", chatIDStr, reaction.MessageID)
+			if thread := update.CallbackQuery.Message.Message.MessageThreadID; thread != 0 {
+				link += fmt.Sprintf("?thread=%d", thread)
+			}
+		}
+
+		count := 0
+		if reaction.ReactionsCount != nil {
+			count = *reaction.ReactionsCount
+		}
+		res += fmt.Sprintf("\nРеакций: %d Ссылка: %s", count, link)
 	}
-	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: update.Message.Chat.ID,
-		Text:   res,
+
+	_, err = b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatID,
+		MessageID: messageID,
+		Text:      res,
 	})
 	if err != nil {
 		bm.Errorf("%v", err)

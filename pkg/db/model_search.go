@@ -55,22 +55,18 @@ type Searcher interface {
 type MessageReactionSearch struct {
 	search
 
-	ID             *int
-	ReactionsCount *int
-	MessageID      *int64
-	ChatID         *int64
-	CreatedAt      *time.Time
-	IDs            []int
-	MessageIDs     []int64
-	ChatIDs        []int64
+	ReactionsCount  *int
+	MessageID       *int
+	ChatID          *int64
+	CreatedAt       *time.Time
+	MessageIDs      []int
+	ChatIDs         []int64
+	ReactionsPeriod *time.Time
 }
 
 func (mrs *MessageReactionSearch) Apply(query *orm.Query) *orm.Query {
 	if mrs == nil {
 		return query
-	}
-	if mrs.ID != nil {
-		mrs.where(query, Tables.MessageReaction.Alias, Columns.MessageReaction.ID, mrs.ID)
 	}
 	if mrs.ReactionsCount != nil {
 		mrs.where(query, Tables.MessageReaction.Alias, Columns.MessageReaction.ReactionsCount, mrs.ReactionsCount)
@@ -84,14 +80,14 @@ func (mrs *MessageReactionSearch) Apply(query *orm.Query) *orm.Query {
 	if mrs.CreatedAt != nil {
 		mrs.where(query, Tables.MessageReaction.Alias, Columns.MessageReaction.CreatedAt, mrs.CreatedAt)
 	}
-	if len(mrs.IDs) > 0 {
-		Filter{Columns.MessageReaction.ID, mrs.IDs, SearchTypeArray, false}.Apply(query)
-	}
 	if len(mrs.MessageIDs) > 0 {
 		Filter{Columns.MessageReaction.MessageID, mrs.MessageIDs, SearchTypeArray, false}.Apply(query)
 	}
 	if len(mrs.ChatIDs) > 0 {
 		Filter{Columns.MessageReaction.ChatID, mrs.ChatIDs, SearchTypeArray, false}.Apply(query)
+	}
+	if mrs.ReactionsPeriod != nil {
+		Filter{Columns.MessageReaction.CreatedAt, *mrs.ReactionsPeriod, SearchTypeGE, false}.Apply(query)
 	}
 
 	mrs.apply(query)
