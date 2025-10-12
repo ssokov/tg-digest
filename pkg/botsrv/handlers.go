@@ -51,7 +51,6 @@ func (bm *BotManager) RegisterBotHandlers(b *bot.Bot) {
 }
 
 func (bm *BotManager) DefaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	bm.Printf("%+v", update)
 	if update.MessageReaction != nil {
 		if err := bm.dbo.RunInTransaction(ctx, func(tx *pg.Tx) error {
 			crTx := bm.cr.WithTransaction(tx)
@@ -131,6 +130,34 @@ func (bm *BotManager) DigestHandler(ctx context.Context, b *bot.Bot, update *mod
 		return
 	}
 }
+
+type ReactionsPeriod struct {
+	Title  string
+	Period time.Duration
+}
+
+var reactionPeriods = map[string]ReactionsPeriod{
+	patternDigestHour: {
+		Title:  "час",
+		Period: 1 * time.Hour,
+	},
+	patternDigestDay: {
+		Title:  "день",
+		Period: 24 * time.Hour,
+	},
+	patternDigestWeek: {
+		Title:  "неделю",
+		Period: 24 * 7 * time.Hour,
+	},
+	patternDigestMonth: {
+		Title:  "месяц",
+		Period: 24 * 30 * time.Hour,
+	},
+	patternDigestAll: {
+		Title: "всё время",
+	},
+}
+
 func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	if update.CallbackQuery == nil || update.CallbackQuery.Data == "" {
 		return
@@ -150,18 +177,16 @@ func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, upd
 
 	now := time.Now()
 	var period time.Time
-	switch periodPatern {
-	case patternDigestHour:
-		period = now.Add(-1 * time.Hour)
-	case patternDigestDay:
-		period = now.Add(-24 * time.Hour)
-	case patternDigestWeek:
-		period = now.Add(-24 * 7 * time.Hour)
-	case patternDigestMonth:
-		period = now.Add(-24 * 7 * 30 * time.Hour)
-	case patternDigestAll:
-		// TODO поменять на другую логику. (возможно запрос без филтьтра по времени, так будет оптимальнее)
-		period = now.Add(-24 * 7 * 30 * 400 * time.Hour)
+
+	pattern, ok := reactionPeriods[periodPatern]
+	if !ok {
+		bm.Errorf("incorrect periodPatern")
+		return
+	}
+
+	period = now.Add(-pattern.Period)
+	if periodPatern == patternDigestAll {
+		period = time.Unix(0, 0)
 	}
 
 	reactions, err := bm.cr.MessageReactionsByFilters(ctx, &db.MessageReactionSearch{
@@ -176,7 +201,7 @@ func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, upd
 
 	bm.Printf("Retrieved %d reactions for chat %d", len(reactions), chat.ID)
 
-	res := "Топ реакции:"
+	res := fmt.Sprintf("Топ реакции в чате за %s:", pattern.Title)
 	for _, reaction := range reactions {
 		var link string
 
