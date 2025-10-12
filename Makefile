@@ -1,4 +1,4 @@
-NAME := botsrv
+NAME := digest
 
 GOFLAGS=-mod=vendor
 
