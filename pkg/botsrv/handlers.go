@@ -201,7 +201,7 @@ func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, upd
 
 	bm.Printf("Retrieved %d reactions for chat %d", len(reactions), chat.ID)
 
-	res := fmt.Sprintf("Топ реакции в чате за %s:", pattern.Title)
+	res := fmt.Sprintf("Топ сообщений по реакциям в чате за %s:", pattern.Title)
 	for _, reaction := range reactions {
 		var link string
 
