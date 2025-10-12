@@ -5,8 +5,6 @@ import (
 	"botsrv/pkg/embedlog"
 	"context"
 	"fmt"
-	"log"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -55,8 +53,6 @@ func (bm *BotManager) RegisterBotHandlers(b *bot.Bot) {
 func (bm *BotManager) DefaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	bm.Printf("%+v", update)
 	if update.MessageReaction != nil {
-		println("пришел реакт")
-		println("info: ", update.MessageReaction.MessageID)
 		if err := bm.dbo.RunInTransaction(ctx, func(tx *pg.Tx) error {
 			crTx := bm.cr.WithTransaction(tx)
 			mr, err := crTx.OneMessageReaction(ctx, &db.MessageReactionSearch{
@@ -67,15 +63,13 @@ func (bm *BotManager) DefaultHandler(ctx context.Context, b *bot.Bot, update *mo
 				return err
 			}
 			if mr == nil {
-				println("создаем реакт", update.MessageReaction.MessageID)
-				fmt.Println(reflect.TypeOf(update.MessageReaction.MessageID))
+				bm.Printf("Creating new message reaction for message ID: %d", update.MessageReaction.MessageID)
 				_, err = crTx.AddMessageReaction(ctx, &db.MessageReaction{
 					MessageID:      update.MessageReaction.MessageID,
 					ChatID:         update.MessageReaction.Chat.ID,
 					ReactionsCount: pointer(1),
 				})
 				if err != nil {
-					fmt.Println("ошибка создания реакта", err)
 					return err
 				}
 			} else {
@@ -138,18 +132,15 @@ func (bm *BotManager) DigestHandler(ctx context.Context, b *bot.Bot, update *mod
 	}
 }
 func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	log.Println("пришел колбек")
 	if update.CallbackQuery == nil || update.CallbackQuery.Data == "" {
 		return
 	}
-	log.Println("data: ", update.CallbackQuery.Data)
 
 	if !strings.HasPrefix(update.CallbackQuery.Data, "digest:") {
 		return
 	}
 	periodPatern := update.CallbackQuery.Data
-
-	log.Println("это наш колбек")
+	bm.Printf("Processing digest callback with period: %s", periodPatern)
 	chat := update.CallbackQuery.Message.Message.Chat
 
 	chatID := chat.ID
@@ -179,12 +170,11 @@ func (bm *BotManager) DigestCallbackHandler(ctx context.Context, b *bot.Bot, upd
 	}, db.Pager{PageSize: pageSize},
 		db.WithSort(db.NewSortField(db.Columns.MessageReaction.ReactionsCount, true)))
 	if err != nil {
-		bm.Errorf("%v", err)
-		log.Println("ошибка получения реактов")
+		bm.Errorf("Failed to fetch message reactions: %v", err)
 		return
 	}
 
-	log.Println("получили реакты")
+	bm.Printf("Retrieved %d reactions for chat %d", len(reactions), chat.ID)
 
 	res := "Топ реакции:"
 	for _, reaction := range reactions {
